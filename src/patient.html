@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    
+    <title>ArogyaChain</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <style>
+        .navbar {
+            margin-bottom: 70px;
+        }
+        .panel-heading {
+            margin-bottom: 20px;
+        }
+        .panel {
+            margin-bottom: 60px;
+        }
+        .well > h3 {
+            margin: 10px auto;
+        }
+        .checkbox label:after {
+            content: '';
+            display: table;
+            clear: both;
+        }
+        .checkbox .cr {
+            position: relative;
+            display: inline-block;
+            border: 1px solid #a9a9a9;
+            border-radius: .25em;
+            width: 1.3em;
+            height: 1.3em;
+            margin-right: .5em;
+        }
+        .checkbox .cr .cr-icon {
+            position: absolute;
+            font-size: .8em;
+            line-height: 0;
+            top: 50%;
+            left: 15%;
+        }
+        .checkbox label input[type="checkbox"] {
+            display: none;
+        }
+        .checkbox label input[type="checkbox"]+.cr>.cr-icon {
+            opacity: 0;
+        }
+        .checkbox label input[type="checkbox"]:checked+.cr>.cr-icon {
+            opacity: 1;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Navigation -->
+<nav class="navbar navbar-inverse navbar-static-top" role="navigation">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="#">ArogyaChain</a>
+        </div>
+        <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+            <ul class="nav navbar-nav navbar-right">
+                <li><a href="./index.html">Logout</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <!-- Personal Information Panel -->
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="text-center">Personal Information</h3>
+        </div>
+        <div class="panel-body">
+            <div class="row">
+                <div class="col-sm-offset-1 col-sm-10">
+                    <table class="table">
+                        <tr>
+                            <th>Name:</th>
+                            <td id="name"></td>
+                        </tr>
+                        <tr>
+                            <th>Age:</th>
+                            <td id="age"></td>
+                        </tr>
+                    </table>
+                    <div class="text-center">
+                        <h5>Your records are stored here: <a id="recordsLink" href="#" target="_blank"></a></h5>
+                        <button type="button" class="btn btn-info btn-lg" onclick="toggleRecords()">View Medical Records</button>
+                    </div>
+                    <pre id="records" style="margin-top: 20px;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Share your Medical Record Panel -->
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="text-center">Share your Medical Record</h3>
+        </div>
+        <div class="panel-body">
+            <div class="row">
+                <div class="alert alert-info col-sm-8 col-sm-offset-2">
+                    <strong>Info!</strong> The doctor already has access to your records. Revoke access or wait for the time duration to end to continue.
+                </div>
+            </div>
+            <form class="form-horizontal">
+                <div class="form-group">
+                    <label for="permitDoctorList" class="control-label col-sm-2">Doctor:</label>
+                    <div class="col-sm-8">
+                        <select class="form-control" id="permitDoctorList">
+                            <option selected disabled>-- Please Select --</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+            <div class="text-center">
+                <button type="button" class="btn btn-primary btn-lg" onclick="giveAccess()">Submit</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Current EMR access holders Panel -->
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h3 class="text-center">Current EMR Access Holders</h3>
+        </div>
+        <div class="panel-body">
+            <div class="row">
+                <div class="alert alert-danger col-sm-8 col-sm-offset-2">
+                    <strong>Notice!</strong> The access could not be revoked. Please retry or contact the admin.
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-offset-1 col-sm-10">
+                    <table id="accessDoc" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Doctor</th>
+                                <th class="publicKeyDoctor">Public Key</th>
+                                <th>Revoke access</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript Libraries -->
+<script src="js/jquery.js"></script>
+<script src="js/bootstrap.min.js"></script>
+<script src="js/web3.min.js"></script>
+<script src="js/app.js"></script>
+
+<script>
+    var recordHash = ""; // Initialize variable for record hash
+
+    $(document).ready(function() {
+        connect(); // Connect to blockchain on page load
+
+        // Hide initial elements
+        $("#records").hide();
+        $(".alert-info").hide();
+        $(".alert-danger").hide();
+
+        // Fetch and display patient information
+        var key = web3.currentProvider.selectedAddress.toLowerCase();
+        fetchPatientData(key);
+
+        // Fetch and display doctors list
+        fetchDoctorsList();
+
+        // Fetch and display doctors with access
+        fetchAccessedDoctorsList(key);
+    });
+
+    // Function to fetch and display patient information
+    function fetchPatientData(key) {
+        contractInstance.get_patient.call(key, { gas: 1000000 }, function(error, result) {
+            if (!error) {
+                var name = result[0];
+                var age = result[1].c[0];
+                recordHash = result[4];
+                $("#name").text(name);
+                $("#age").text(age);
+                $("#recordsLink").attr("href", "http://localhost:8080/ipfs/" + recordHash).text(recordHash);
+            } else {
+                console.error(error);
+            }
+        });
+    }
+
+    // Function to fetch and display doctors list
+    function fetchDoctorsList() {
+        contractInstance.get_doctor_list({ gas: 1000000 }, function(error, result) {
+            if (!error) {
+                var doctorList = result;
+                var select = $("#permitDoctorList");
+                $.each(doctorList, function(index, doctorAddress) {
+                    contractInstance.get_doctor.call(doctorAddress, { gas: 1000000 }, function(error, result) {
+                        if (!error) {
+                            var doctorName = result[0];
+                            var option = $("<option>").text(doctorName);
+                            select.append(option);
+                        } else {
+                            console.error(error);
+                        }
+                    });
+                });
+            } else {
+                console.error(error);
+            }
+        });
+    }
+
+    // Function to fetch and display doctors with access
+    function fetchAccessedDoctorsList(key) {
+        contractInstance.get_accessed_doctorlist_for_patient(key, { gas: 1000000 }, function(error, result) {
+            if (!error) {
+                var doctorAddressList = result;
+                var table = $("#accessDoc tbody");
+                doctorAddressList.forEach(function(doctorAddress) {
+                    contractInstance.get_doctor.call(doctorAddress, { gas: 1000000 }, function(error, result) {
+                        if (!error) {
+                            var doctorName = result[0];
+                            var publicKey = doctorAddress;
+                            var row = $("<tr>");
+                            row.append($("<td>").text(doctorName));
+                            row.append($("<td>").addClass("publicKeyDoctor").text(publicKey));
+                            row.append($("<td>").html('<button class="btn btn-danger" onclick="revokeAccess(this)">Revoke access</button>'));
+                            table.append(row);
+                        } else {
+                            console.error(error);
+                        }
+                    });
+                });
+            } else {
+                console.error(error);
+            }
+        });
+    }
+
+    // Function to toggle display of medical records
+    function toggleRecords() {
+        var recordsDiv = $("#records");
+        var recordsButton = $("#toggleRecordsBtn");
+
+        if (recordsDiv.is(":visible")) {
+            recordsDiv.hide();
+            recordsButton.text("View Medical Records").removeClass("btn-danger").addClass("btn-info");
+        } else {
+            $.get("http://localhost:8080/ipfs/" + recordHash, function(data) {
+                recordsDiv.html(data).show();
+                recordsButton.text("Hide Medical Records").removeClass("btn-info").addClass("btn-danger");
+            });
+        }
+    }
+
+    // Function to grant access to a selected doctor
+    function giveAccess() {
+        var selectedDoctorIndex = $("#permitDoctorList").prop("selectedIndex");
+        var doctorList = [];
+
+        contractInstance.get_doctor_list({ gas: 1000000 }, function(error, result) {
+            if (!error) {
+                doctorList = result;
+                var doctorToBeAdded = doctorList[selectedDoctorIndex - 1];
+                contractInstance.permit_access.sendTransaction(doctorToBeAdded, { from: key, gas: 1000000, value: web3.toWei(2, 'ether') }, function(error) {
+                    if (!error) {
+                        fetchAccessedDoctorsList(key); // Refresh the list of accessed doctors
+                    } else {
+                        $(".alert-info").show();
+                        console.error(error);
+                    }
+                });
+            } else {
+                console.error(error);
+            }
+        });
+    }
+
+    // Function to revoke access for a doctor
+    function revokeAccess(button) {
+        var doctorRow = $(button).closest("tr");
+        var publicKey = doctorRow.find(".publicKeyDoctor").text();
+
+        contractInstance.revoke_access(publicKey, { gas: 1000000 }, function(error) {
+            if (!error) {
+                doctorRow.remove(); // Remove the row from the table
+            } else {
+                $(".alert-danger").show();
+                console.error(error);
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
